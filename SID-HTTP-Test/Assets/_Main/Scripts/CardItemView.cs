@@ -1,58 +1,58 @@
+using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.EventSystems;
 
-public class CardItemView : MonoBehaviour
+public class CardItemView : MonoBehaviour, IPointerClickHandler
 {
     [SerializeField] private RawImage avatar;
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text speciesText;
+    [SerializeField] private Image background;
 
-    public void SetData(int id, string name, string species, string imageUrl)
+    private int index;
+    private Action<int> onClick;
+
+    private Color normal = new Color(1, 1, 1, 0.2f);
+    private Color selected = new Color(1, 1, 1, 0.6f);
+
+    public void Bind(int idx, string title, string species, string imageUrl, Action<int> clickCb)
     {
-        titleText.text = $"#{id} - {name}";
-        if (speciesText != null) speciesText.text = species;
+        index = idx;
+        onClick = clickCb;
+
+        titleText.text = title;
+        if (speciesText != null) speciesText.text = species ?? "";
+
+        SetSelected(false);
 
         if (!string.IsNullOrEmpty(imageUrl))
-            {
-                StartCoroutine(LoadImage(imageUrl));
-            }
-            else
-            {
-                // opcional: dejar la RawImage apagada para que no se vea estirada
-                 avatar.enabled = false;
-            }
+            StartCoroutine(LoadImage(imageUrl));
+        else
+            avatar.texture = null;
+    }
 
-        StartCoroutine(LoadImage(imageUrl));
+    public void SetSelected(bool isSelected)
+    {
+        if (background != null) background.color = isSelected ? selected : normal;
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        onClick?.Invoke(index);
     }
 
     private IEnumerator LoadImage(string url)
     {
-        Debug.Log("Cargando imagen: " + url);
-
         using (var req = UnityWebRequestTexture.GetTexture(url))
         {
             yield return req.SendWebRequest();
+            if (req.result != UnityWebRequest.Result.Success) yield break;
 
-            if (req.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"Image error: {req.error} | code: {req.responseCode} | url: {url}");
-                yield break;
-            }
-
-            var tex = DownloadHandlerTexture.GetContent(req);
-
-            if (tex == null)
-            {
-                Debug.LogError("Texture llegó null: " + url);
-                yield break;
-            }
-
-            avatar.texture = tex;
-            avatar.color = Color.white;   // por si estaba transparente
-            avatar.enabled = true;
+            avatar.texture = DownloadHandlerTexture.GetContent(req);
         }
     }
 }

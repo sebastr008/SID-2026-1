@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
@@ -12,11 +13,11 @@ public class DeckApp : MonoBehaviour
     [SerializeField] private string fakeApiBase = "https://my-json-server.typicode.com/sebastr008/SID-2026-1";
 
     [Header("Jugadores")]
-    [SerializeField] private string[] playerNames = { "Arnoldo", "Pepito", "Arnold Schwarznegger", "Jugador API Falsa" };
-    [SerializeField] private int[] playerPages = { 1, 2, 3, -1 }; // -1 = deck desde db.json
-    [SerializeField] private int customDeckId = 1; // /customDecks/1
+    [SerializeField] private string[] playerNames = { "Arnoldo", "Pepito", "Arnold Schwarznegger", "Jugador DB" };
+    [SerializeField] private int[] playerPages = { 1, 2, 3, -1 }; // -1 => db.json customDecks
+    [SerializeField] private int customDeckId = 1;
 
-    [Header("Tamaño de baraja")]
+    [Header("Deck")]
     [SerializeField] private int deckSize = 6;
 
     [Header("UI")]
@@ -26,16 +27,51 @@ public class DeckApp : MonoBehaviour
     [SerializeField] private ScrollRect scrollRect;
 
     [SerializeField] private Transform cardsParent;   // Content del ScrollView
-    [SerializeField] private CardItemView cardPrefab; // Prefab del Project
+    [SerializeField] private CardItemView cardPrefab;
 
+    [Header("Swap UI")]
+    [SerializeField] private TMP_Dropdown targetPlayerDropdown;
+    [SerializeField] private Button swapButton;
+
+    // ====== Estado interno ======
+    private class CardData
+    {
+        public int id;
+        public string name;
+        public string species;
+        public string imageUrl;
+    }
+
+    private class PlayerDeck
+    {
+        public string displayName;
+        public bool loaded;
+        public List<CardData> cards = new List<CardData>();
+    }
+
+    private PlayerDeck[] decks;
     private int currentPlayerIndex = 0;
+    private int selectedCardIndex = -1;
+
     private bool isLoading = false;
     private Coroutine currentLoad;
 
     private void Start()
     {
+        decks = new PlayerDeck[playerNames.Length];
+        for (int i = 0; i < decks.Length; i++)
+            decks[i] = new PlayerDeck { displayName = playerNames[i], loaded = false };
+
         prevButton.onClick.AddListener(() => ChangePlayer(-1));
         nextButton.onClick.AddListener(() => ChangePlayer(1));
+
+        // Dropdown targets
+        targetPlayerDropdown.ClearOptions();
+        targetPlayerDropdown.AddOptions(new List<string>(playerNames));
+
+        swapButton.onClick.AddListener(SwapSelectedWithTarget);
+        swapButton.interactable = false;
+
         LoadCurrentPlayer();
     }
 
@@ -54,31 +90,30 @@ public class DeckApp : MonoBehaviour
         ClearCards();
         if (scrollRect != null) scrollRect.verticalNormalizedPosition = 1f;
 
-        currentLoad = StartCoroutine(LoadDeckForCurrentPlayer());
+        selectedCardIndex = -1;
+        swapButton.interactable = false;
+
+        currentLoad = StartCoroutine(EnsureDeckLoadedThenRender(currentPlayerIndex));
     }
 
-    private IEnumerator LoadDeckForCurrentPlayer()
+    private IEnumerator EnsureDeckLoadedThenRender(int playerIndex)
     {
         isLoading = true;
         prevButton.interactable = false;
         nextButton.interactable = false;
+        swapButton.interactable = false;
 
         try
         {
-            int page = playerPages[currentPlayerIndex];
+            if (!decks[playerIndex].loaded)
+            {
+                int page = playerPages[playerIndex];
+                if (page == -1) yield return BuildDeckFromDb(playerIndex);
+                else yield return BuildDeckFromPage(playerIndex, page);
+            }
 
-            if (page == -1)
-            {
-                // ESTE jugador usa el deck de tu db.json
-                playerNameText.text = "Cargando...";
-                yield return LoadDeckFromDbCards(customDeckId);
-            }
-            else
-            {
-                // Estos jugadores usan Rick & Morty por page
-                playerNameText.text = playerNames[currentPlayerIndex];
-                yield return LoadDeckFromPage(page);
-            }
+            RenderDeck(playerIndex);
+            playerNameText.text = decks[playerIndex].displayName;
         }
         finally
         {
@@ -88,7 +123,83 @@ public class DeckApp : MonoBehaviour
         }
     }
 
-    private IEnumerator LoadDeckFromPage(int page)
+    private void RenderDeck(int playerIndex)
+    {
+        ClearCards();
+
+        var deck = decks[playerIndex];
+        int count = Mathf.Min(deckSize, deck.cards.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            var c = deck.cards[i];
+            var item = Instantiate(cardPrefab, cardsParent);
+
+            string title = $"#{c.id} - {c.name}";
+            item.Bind(i, title, c.species, c.imageUrl, OnCardClicked);
+        }
+    }
+
+    private void OnCardClicked(int idx)
+    {
+        selectedCardIndex = idx;
+        swapButton.interactable = true;
+
+        // actualiza highlight
+        for (int i = 0; i < cardsParent.childCount; i++)
+        {
+            var view = cardsParent.GetChild(i).GetComponent<CardItemView>();
+            if (view != null) view.SetSelected(i == selectedCardIndex);
+        }
+    }
+
+    private void SwapSelectedWithTarget()
+    {
+        if (isLoading) return;
+        if (selectedCardIndex < 0) return;
+
+        int targetIndex = targetPlayerDropdown.value;
+        if (targetIndex == currentPlayerIndex) return;
+
+        StartCoroutine(SwapCoroutine(targetIndex, selectedCardIndex));
+    }
+
+    private IEnumerator SwapCoroutine(int targetPlayerIndex, int slotIndex)
+    {
+        // asegura que el target tenga deck cargado (si nunca lo has visitado)
+        if (!decks[targetPlayerIndex].loaded)
+        {
+            isLoading = true;
+            prevButton.interactable = false;
+            nextButton.interactable = false;
+            swapButton.interactable = false;
+
+            int page = playerPages[targetPlayerIndex];
+            if (page == -1) yield return BuildDeckFromDb(targetPlayerIndex);
+            else yield return BuildDeckFromPage(targetPlayerIndex, page);
+
+            isLoading = false;
+            prevButton.interactable = true;
+            nextButton.interactable = true;
+        }
+
+        var a = decks[currentPlayerIndex];
+        var b = decks[targetPlayerIndex];
+
+        if (slotIndex >= a.cards.Count || slotIndex >= b.cards.Count) yield break;
+
+        // swap por slot (misma posición)
+        CardData tmp = a.cards[slotIndex];
+        a.cards[slotIndex] = b.cards[slotIndex];
+        b.cards[slotIndex] = tmp;
+
+        // refresca el deck actual en pantalla
+        selectedCardIndex = -1;
+        swapButton.interactable = false;
+        RenderDeck(currentPlayerIndex);
+    }
+
+    private IEnumerator BuildDeckFromPage(int playerIndex, int page)
     {
         string url = $"{baseUrl}?page={page}";
 
@@ -97,62 +208,63 @@ public class DeckApp : MonoBehaviour
         if (string.IsNullOrEmpty(json)) yield break;
 
         CharacterPageResponse response = JsonUtility.FromJson<CharacterPageResponse>(json);
-        if (response == null || response.results == null)
-        {
-            Debug.LogError("No pude parsear el JSON (response/results null).");
-            yield break;
-        }
+        if (response == null || response.results == null) yield break;
+
+        var deck = decks[playerIndex];
+        deck.cards.Clear();
 
         int count = Mathf.Min(deckSize, response.results.Length);
         for (int i = 0; i < count; i++)
         {
             Character c = response.results[i];
-
-            var item = Instantiate(cardPrefab, cardsParent);
-            item.SetData(c.id, c.name, c.species, c.image);
-
-            yield return new WaitForSeconds(0.05f);
+            deck.cards.Add(new CardData
+            {
+                id = c.id,
+                name = c.name,
+                species = c.species,
+                imageUrl = c.image
+            });
         }
+
+        deck.displayName = playerNames[playerIndex];
+        deck.loaded = true;
     }
 
-    private IEnumerator LoadDeckFromDbCards(int deckId)
+    private IEnumerator BuildDeckFromDb(int playerIndex)
     {
-        // Pide el deck (objeto) desde db.json
-        string deckUrl = $"{fakeApiBase}/customDecks/{deckId}";
+        // trae tu deck de db.json: /customDecks/1
+        string deckUrl = $"{fakeApiBase}/customDecks/{customDeckId}";
 
         string deckJson = null;
         yield return GetJsonWithRetry(deckUrl, t => deckJson = t);
         if (string.IsNullOrEmpty(deckJson)) yield break;
 
-        DbDeckDto deck = JsonUtility.FromJson<DbDeckDto>(deckJson);
-        if (deck == null || deck.cards == null)
-        {
-            Debug.LogError("DbDeckDto vino null o sin cards.");
-            yield break;
-        }
+        DbDeckDto deckDto = JsonUtility.FromJson<DbDeckDto>(deckJson);
+        if (deckDto == null || deckDto.cards == null) yield break;
 
-        // Nombre del jugador DB viene del db.json (ownerName)
-        playerNameText.text = deck.ownerName;
+        var deck = decks[playerIndex];
+        deck.cards.Clear();
 
-        int count = Mathf.Min(deckSize, deck.cards.Length);
+        int count = Mathf.Min(deckSize, deckDto.cards.Length);
         for (int i = 0; i < count; i++)
         {
-            DbCardDto c = deck.cards[i];
-
-            var item = Instantiate(cardPrefab, cardsParent);
-
-            // Aquí las cartas SON tus nombres del db.json
-            // species lo dejamos vacío
-            item.SetData(c.id, c.name, "", c.image);
-
-            yield return new WaitForSeconds(0.03f);
+            DbCardDto c = deckDto.cards[i];
+            deck.cards.Add(new CardData
+            {
+                id = c.id,
+                name = c.name,
+                species = "",
+                imageUrl = c.image // puede ser "" y CardItemView lo ignora
+            });
         }
+
+        deck.displayName = deckDto.ownerName; // nombre del “Jugador DB” desde db.json
+        deck.loaded = true;
     }
 
     private IEnumerator GetJsonWithRetry(string url, Action<string> onOk)
     {
         int attempts = 0;
-
         while (attempts < 3)
         {
             using (UnityWebRequest req = UnityWebRequest.Get(url))

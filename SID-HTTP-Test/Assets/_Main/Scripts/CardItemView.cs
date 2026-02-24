@@ -11,6 +11,7 @@ public class CardItemView : MonoBehaviour, IPointerClickHandler
     [SerializeField] private RawImage avatar;
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text speciesText;
+    [SerializeField] private TMP_Text statusText;
     [SerializeField] private Image background;
 
     private int index;
@@ -19,13 +20,14 @@ public class CardItemView : MonoBehaviour, IPointerClickHandler
     private Color normal = new Color(1, 1, 1, 0.2f);
     private Color selected = new Color(1, 1, 1, 0.6f);
 
-    public void Bind(int idx, string title, string species, string imageUrl, Action<int> clickCb)
+     public void Bind(int idx, string title, string species, string status, string imageUrl, Action<int> clickCb)
     {
         index = idx;
         onClick = clickCb;
 
         titleText.text = title;
         if (speciesText != null) speciesText.text = species ?? "";
+        if (statusText != null) statusText.text = status ?? "";
 
         SetSelected(false);
 

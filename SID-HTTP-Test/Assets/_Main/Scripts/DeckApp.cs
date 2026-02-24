@@ -39,6 +39,7 @@ public class DeckApp : MonoBehaviour
         public int id;
         public string name;
         public string species;
+        public string status;
         public string imageUrl;
     }
 
@@ -136,7 +137,7 @@ public class DeckApp : MonoBehaviour
             var item = Instantiate(cardPrefab, cardsParent);
 
             string title = $"#{c.id} - {c.name}";
-            item.Bind(i, title, c.species, c.imageUrl, OnCardClicked);
+            item.Bind(i, title, c.species, c.status, c.imageUrl, OnCardClicked);
         }
     }
 
@@ -222,6 +223,7 @@ public class DeckApp : MonoBehaviour
                 id = c.id,
                 name = c.name,
                 species = c.species,
+                status = c.status,
                 imageUrl = c.image
             });
         }
@@ -253,7 +255,8 @@ public class DeckApp : MonoBehaviour
             {
                 id = c.id,
                 name = c.name,
-                species = "",
+                species = c.species,
+                status = c.status,
                 imageUrl = c.image // puede ser "" y CardItemView lo ignora
             });
         }

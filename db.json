@@ -1,8 +1,16 @@
 {
-  "players": [
-    { "id": 1, "name": "Bazucristo", "deck": [1, 2, 3, 4, 5, 6] },
-    { "id": 2, "name": "Frodo", "deck": [7, 8, 9, 10, 11, 12] },
-    { "id": 3, "name": "xXx_alphaSniper92_xXx", "deck": [13, 14, 15, 16, 17, 18] },
-    { "id": 4, "name": "Heliodoro", "deck": [19, 20, 21, 22, 23, 24] }
+  "customDecks": [
+    {
+      "id": 1,
+      "ownerName": "Jugador DB",
+      "cards": [
+        { "id": 101, "name": "xXx_alphaSniper9_xXx", "image": "" },
+        { "id": 102, "name": "heliodoro", "image": "" },
+        { "id": 103, "name": "octavio", "image": "" },
+        { "id": 104, "name": "asdasd", "image": "" },
+        { "id": 105, "name": "hola", "image": "" },
+        { "id": 106, "name": "porfa funciona", "image": "" }
+      ]
+    }
   ]
 }

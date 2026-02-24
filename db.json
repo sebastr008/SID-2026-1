@@ -4,12 +4,12 @@
       "id": 1,
       "ownerName": "Jugador DB",
       "cards": [
-        { "id": 101, "name": "xXx_alphaSniper9_xXx", "image": "" },
-        { "id": 102, "name": "heliodoro", "image": "" },
-        { "id": 103, "name": "octavio", "image": "" },
-        { "id": 104, "name": "asdasd", "image": "" },
-        { "id": 105, "name": "hola", "image": "" },
-        { "id": 106, "name": "porfa funciona", "image": "" }
+        { "id": 101, "name": "xXx_alphaSniper9_xXx", "species":"COD player", "status":"Alive", "image": "" },
+        { "id": 102, "name": "heliodoro", "species":"Jornalero", "status":"Dead",  "image": "" },
+        { "id": 103, "name": "octavio", "species":"Cantante", "status":"Dead", "image": "" },
+        { "id": 104, "name": "SCP-021", "species":"Test", "status":"unknown", "image": "" },
+        { "id": 105, "name": "BillCypher", "species":"Unknown", "status":"Dead", "image": "" },
+        { "id": 106, "name": "Jordan", "species":"Basquetbolista", "status":"Alive", "image": "" }
       ]
     }
   ]
